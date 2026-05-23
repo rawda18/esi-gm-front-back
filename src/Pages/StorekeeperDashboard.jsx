@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Pencil,
+  Trash2,
   Package,
   TrendingUp,
   AlertTriangle,
@@ -36,6 +37,8 @@ export default function StorekeeperDashboard({ onAddMaintenance }) {
   const [materials, setMaterials] = useState([]);
   const [showAddMaterial, setShowAddMaterial] = useState(false);
   const [showAddMaintenance, setShowAddMaintenance] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [stats, setStats] = useState([
     { label: 'Total Outputs', value: 0, icon: <Package size={24} />, iconColor: '#6366F1', iconBg: 'rgba(99,102,241,0.15)' },
     { label: 'Available Items', value: 0, icon: <TrendingUp size={24} />, iconColor: '#05DF72', iconBg: 'rgba(99,102,241,0.15)' },
@@ -97,7 +100,63 @@ export default function StorekeeperDashboard({ onAddMaintenance }) {
     }
   };
 
-  // ========== هنا التعديل الأساسي لمعالجة إضافة الصيانة ==========
+  // ✅ DELETE function
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this material?')) {
+      try {
+        const response = await fetch(`http://localhost:8000/storekeeper/materials/${id}/delete/`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          }
+        });
+
+        if (response.status === 200) {
+          alert('Material deleted successfully');
+          await loadData();
+        } else if (response.status === 400) {
+          const error = await response.json();
+          alert(error.error || 'Cannot delete material because it is currently borrowed');
+        } else {
+          alert('Delete failed');
+        }
+      } catch (error) {
+        console.error('Error deleting material:', error);
+        alert('An error occurred while deleting');
+      }
+    }
+  };
+
+  // ✅ EDIT functions
+  const handleEdit = (item) => {
+    setEditingMaterial(item);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateMaterial = async (updatedMaterial) => {
+    try {
+      const response = await fetch(`http://localhost:8000/storekeeper/materials/${updatedMaterial.id}/update/`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedMaterial)
+      });
+
+      if (response.status === 200) {
+        alert('✅ Material updated successfully');
+        await loadData();
+        setShowEditModal(false);
+      } else {
+        alert('❌ Update failed');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('❌ An error occurred');
+    }
+  };
+
   const handleAddMaintenanceSubmit = async (form) => {
     try {
       const item = materials.find((m) => m.name === form.material);
@@ -105,29 +164,22 @@ export default function StorekeeperDashboard({ onAddMaintenance }) {
         console.error('Material not found:', form.material);
         return;
       }
-      // 1. تغيير حالة المادة إلى "تحت الصيانة"
-      await handleStatusChange(item.id, 'under_maintenance');
-      // 2. إضافة طلب الصيانة في الباك (باستخدام material id)
+      await handleStatusChange(item.id, 'Under Maintenance');
       await addMaintenanceItem(item.id, form.issue, form.priority);
-      // 3. إعادة تحميل البيانات لتحديث القائمة والإحصائيات
       await loadData();
-      // 4. إغلاق المودال
       setShowAddMaintenance(false);
     } catch (error) {
       console.error('Failed to add maintenance:', error);
     }
   };
-  // =======================================================
 
   return (
     <div className="flex dynamic-bg transition-colors duration-300" style={{ fontFamily: 'Inter' }}>
       <Sidebare3 activeLabel="Dashboard" />
       <main className="flex-1 relative overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="absolute top-6 right-8 z-60">
-          <ThemeToggel />
-        </div>
+        
 
-        <div className="w-full mt-[45px] border-t border-solid border-[var(--card-border)]"></div>
+        
         <div className="w-full mb-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3">
             <div className="whitespace-nowrap">
@@ -239,7 +291,8 @@ export default function StorekeeperDashboard({ onAddMaintenance }) {
                       </td>
                       <td className="py-4">
                         <div className="flex gap-2 text-gray-400">
-                          <Pencil size={16} className="cursor-pointer hover:text-indigo-500" onClick={() => console.log('Edit material:', item)} />
+                          <Pencil size={16} className="cursor-pointer hover:text-indigo-500" onClick={() => handleEdit(item)} />
+                          <Trash2 size={16} className="cursor-pointer hover:text-red-500" onClick={() => handleDelete(item.id)} />
                           <ArrowRight size={16} className="cursor-pointer hover:text-indigo-500" onClick={() => console.log('Transfer material:', item)} />
                         </div>
                       </td>
@@ -334,13 +387,68 @@ export default function StorekeeperDashboard({ onAddMaintenance }) {
         {/* Add Material Modal */}
         {showAddMaterial && <AddMaterialModal onClose={() => setShowAddMaterial(false)} onAdd={handleAddMaterial} />}
 
-        {/* Add Maintenance Modal - باستعمال الدالة الجديدة handleAddMaintenanceSubmit */}
+        {/* Add Maintenance Modal */}
         {showAddMaintenance && (
           <AddMaintenanceModal
             onClose={() => setShowAddMaintenance(false)}
             materials={materials}
             onSubmit={handleAddMaintenanceSubmit}
           />
+        )}
+
+        {/* ✅ EDIT MODAL */}
+        {showEditModal && editingMaterial && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-96" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-xl font-bold mb-4">Edit Material</h3>
+              <input
+                type="text"
+                defaultValue={editingMaterial.name}
+                id="edit-name"
+                className="w-full p-2 border rounded mb-3 dark:bg-gray-800"
+                placeholder="Name"
+              />
+              <input
+                type="text"
+                defaultValue={editingMaterial.category}
+                id="edit-category"
+                className="w-full p-2 border rounded mb-3 dark:bg-gray-800"
+                placeholder="Category"
+              />
+              <input
+                type="number"
+                defaultValue={editingMaterial.qty}
+                id="edit-quantity"
+                className="w-full p-2 border rounded mb-3 dark:bg-gray-800"
+                placeholder="Quantity"
+              />
+              <input
+                type="text"
+                defaultValue={editingMaterial.loc}
+                id="edit-location"
+                className="w-full p-2 border rounded mb-3 dark:bg-gray-800"
+                placeholder="Location"
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-gray-300 rounded dark:bg-gray-700">Cancel</button>
+                <button
+                  onClick={() => {
+                    const updated = {
+                      id: editingMaterial.id,
+                      name: document.getElementById('edit-name').value,
+                      category: document.getElementById('edit-category').value,
+                      quantity: parseInt(document.getElementById('edit-quantity').value),
+                      location: document.getElementById('edit-location').value,
+                    };
+                    handleUpdateMaterial(updated);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

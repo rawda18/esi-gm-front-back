@@ -15,16 +15,30 @@ api.interceptors.request.use((config) => {
 export const fetchMaterials = async () => {
   try {
     const response = await api.get('/storekeeper/materials/');
-    return response.data.map(material => ({
-      id: material.id,
-      name: material.name,
-      category: material.category,
-      desc: material.description || '',
-      qty: material.quantity,
-      loc: material.location || '',
-      lab: material.laboratory?.name || '',
-      status: material.status_display || material.status || 'Available',
-    }));
+    return response.data.map(material => {
+      // تطبيع القيمة (Normalize) لتتناسب مع القائمة المنسدلة
+      let displayStatus = 'Available';
+      const rawStatus = (material.status_display || material.status || 'available').toLowerCase();
+      
+      if (rawStatus === 'available') displayStatus = 'Available';
+      else if (rawStatus === 'reserved') displayStatus = 'Reserved';
+      else if (rawStatus === 'in use' || rawStatus === 'in_use') displayStatus = 'In Use';
+      else if (rawStatus === 'under maintenance' || rawStatus === 'under_maintenance') displayStatus = 'Under Maintenance';
+      else if (rawStatus === 'damaged') displayStatus = 'Damaged';
+      else if (rawStatus === 'lost') displayStatus = 'Lost';
+      else displayStatus = 'Available';
+      
+      return {
+        id: material.id,
+        name: material.name,
+        category: material.category,
+        desc: material.description || '',
+        qty: material.quantity,
+        loc: material.location || '',
+        lab: material.laboratory?.name || '',
+        status: displayStatus,
+      };
+    });
   } catch (error) {
     console.error('Error fetching materials:', error);
     return [];
@@ -34,7 +48,20 @@ export const fetchMaterials = async () => {
 // تحديث حالة مادة (تمت إزالة /update/ من الـ endpoint)
 export const updateMaterialStatus = async (id, newStatus) => {
   try {
-    const response = await api.patch(`/storekeeper/materials/${id}/`, { status: newStatus });
+    // تحويل القيمة إلى الشكل اللي يفهمه الـ Backend
+    let backendStatus = '';
+    
+    if (newStatus === 'Available') backendStatus = 'available';
+    else if (newStatus === 'Reserved') backendStatus = 'reserved';
+    else if (newStatus === 'In Use') backendStatus = 'in_use';
+    else if (newStatus === 'Under Maintenance') backendStatus = 'under_maintenance';
+    else if (newStatus === 'Damaged') backendStatus = 'damaged';
+    else if (newStatus === 'Lost') backendStatus = 'lost';
+    else backendStatus = 'available';
+    
+    console.log('Sending status:', backendStatus); // للتأكد
+    
+    const response = await api.patch(`/storekeeper/materials/${id}/`, { status: backendStatus });
     return response.data;
   } catch (error) {
     console.error('Error updating material status:', error);
@@ -63,8 +90,7 @@ export const addMaterial = async (newMaterial) => {
       description: newMaterial.desc,
       quantity: newMaterial.qty,
       location: newMaterial.loc,
-      laboratory_id:  labId, //labId, // backend يتوقع id للمختبر
-     // status: newMaterial.status || 'Available',
+      laboratory_id: labId,
       unit: 'piece',
       min_stock: 0,
     };
