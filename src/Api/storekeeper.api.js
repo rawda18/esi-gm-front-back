@@ -3,7 +3,6 @@ import axios from 'axios';
 
 const API_BASE = 'http://localhost:8000';
 
-// إضافة التوكن (ضروري إذا الباك محمي)
 const api = axios.create({ baseURL: API_BASE });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
@@ -11,12 +10,10 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ===================== المواد =====================
 export const fetchMaterials = async () => {
   try {
     const response = await api.get('/storekeeper/materials/');
     return response.data.map(material => {
-      // تطبيع القيمة (Normalize) لتتناسب مع القائمة المنسدلة
       let displayStatus = 'Available';
       const rawStatus = (material.status_display || material.status || 'available').toLowerCase();
       
@@ -45,10 +42,8 @@ export const fetchMaterials = async () => {
   }
 };
 
-// تحديث حالة مادة (تمت إزالة /update/ من الـ endpoint)
 export const updateMaterialStatus = async (id, newStatus) => {
   try {
-    // تحويل القيمة إلى الشكل اللي يفهمه الـ Backend
     let backendStatus = '';
     
     if (newStatus === 'Available') backendStatus = 'available';
@@ -59,7 +54,7 @@ export const updateMaterialStatus = async (id, newStatus) => {
     else if (newStatus === 'Lost') backendStatus = 'lost';
     else backendStatus = 'available';
     
-    console.log('Sending status:', backendStatus); // للتأكد
+    console.log('Sending status:', backendStatus);
     
     const response = await api.patch(`/storekeeper/materials/${id}/`, { status: backendStatus });
     return response.data;
@@ -69,19 +64,17 @@ export const updateMaterialStatus = async (id, newStatus) => {
   }
 };
 
-// إضافة مادة جديدة (تم إصلاح جلب المختبرات)
 export const addMaterial = async (newMaterial) => {
   try {
-    // جلب المختبرات من المسار الصحيح (بدون /api/ إضافية)
     let labId = null;
     try {
       const labsResponse = await api.get('/api/laboratories/');
       const lab = labsResponse.data.find(lab => lab.name === newMaterial.lab);
       if (lab) labId = lab.id;
-      else throw new Error(`المختبر "${newMaterial.lab}" غير موجود`);
+      else throw new Error(`Laboratory "${newMaterial.lab}" not found`);
     } catch (err) {
-      console.warn('فشل جلب المختبرات، نستخدم مختبر افتراضي (id=1)');
-      labId = 1; // مؤقت
+      console.warn('Failed to fetch labs, using default lab (id=1)');
+      labId = 1;
     }
 
     const payload = {
@@ -112,7 +105,6 @@ export const addMaterial = async (newMaterial) => {
   }
 };
 
-// إحصائيات المخزون
 export const fetchInventoryStats = async () => {
   try {
     const response = await api.get('/storekeeper/stats/');
@@ -124,7 +116,6 @@ export const fetchInventoryStats = async () => {
     };
   } catch (error) {
     console.error('Error fetching inventory stats:', error);
-    // Fallback
     const materials = await fetchMaterials();
     return {
       totalOutputs: materials.length,
