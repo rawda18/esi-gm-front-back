@@ -30,7 +30,7 @@ import Maintenance from './Pages/Maintenance';
 import MyProject from './Pages/Myproject';
 import BrouwseMaterial from './Pages/BrouwseMaterial';
 import MaintenanceManagement from './Pages/MaintenanceManagement';
-
+import SettingsPage from './Pages/settings';
 import './App.css';
 
 function App() {
@@ -60,6 +60,7 @@ function App() {
                 <Route path="/transfers" element={<MaterialTransfers />} />
                 <Route path="/qr-scanner" element={<QRStockScanner />} />
                 <Route path="/material-outputs" element={<InputOutput />} />
+                <Route path="/settings" element={<SettingsPage />} />
 
                 {/* STOREKEEPER ROUTES */}
 

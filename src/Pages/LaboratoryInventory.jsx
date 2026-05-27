@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Sidebare3 from '../components/Sidebare3';
 import Sidebare2 from '../components/Sidebare2';
 import {
-  LayoutDashboard,
   Box,
   QrCode,
   Users,
@@ -16,11 +15,10 @@ import {
   ChevronDown,
   Cpu,
   Filter,
-  X,
 } from 'lucide-react';
-import logo from './logo.jpg';
 import { getItems } from '../Api/inventory.api.js';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../Context/ThemeContext';
 
 const mockApi = {
   categories: [
@@ -98,54 +96,96 @@ const mockApi = {
   ],
 };
 
+const FilterDropdown = ({ label, dark, items = [], onSelect }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-8 px-4 py-2.5 rounded-xl border cursor-pointer bg-[#2B4C9F] border-[#2B4C9F] text-white"
+      >
+        <span className="text-sm font-medium">{label}</span>
+        <ChevronDown size={16} />
+      </div>
+      {open && (
+        <div
+          className={`absolute mt-2 w-52 rounded-xl border shadow-lg z-50 ${
+            dark ? 'bg-[#020817] border-[#2B4C9F]' : 'bg-white border-gray-200'
+          }`}
+        >
+          {items.map((item, index) => (
+            <div
+              key={index}
+              onClick={() => {
+                onSelect(item);
+                setOpen(false);
+              }}
+              className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
+                dark ? 'hover:bg-gray-800' : ''
+              }`}
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const LaboratoryInventory = () => {
+  const { darkMode: dark, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const [dark, setDark] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [statusFilter, setStatusFilter] = useState('All Status');
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        setLoading(true);
-
-        const data = await getItems();
-        setItems(data);
-
-        setCategories(mockApi.categories);
-      } catch (error) {
-        console.error('Failed to load data:', error);
-
-        setItems(mockApi.items);
-        setCategories(mockApi.categories);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAllData();
-  }, []);
-  const toggleTheme = () => setDark(!dark);
   const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     const role = localStorage.getItem('user_role') || localStorage.getItem('role') || 'admin';
     setUserRole(role);
   }, []);
+
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        setLoading(true);
+        const data = await getItems();
+        setItems(data);
+        setCategories(mockApi.categories);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        setItems(mockApi.items);
+        setCategories(mockApi.categories);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAllData();
+  }, []);
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const matchSearch =
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.desc.toLowerCase().includes(searchTerm.toLowerCase());
-
       const matchCategory = categoryFilter === 'All Categories' || item.category === categoryFilter;
-
       const matchStatus = statusFilter === 'All Status' || item.status === statusFilter;
-
       return matchSearch && matchCategory && matchStatus;
     });
   }, [items, searchTerm, categoryFilter, statusFilter]);
@@ -177,11 +217,7 @@ const LaboratoryInventory = () => {
               dark ? 'bg-[#020817] border-[#2B4C9F]' : 'bg-white border-[#E2E8F0] hover:bg-gray-100'
             }`}
           >
-            {dark ? (
-              <Sun size={20} className="text-[#FFF]" />
-            ) : (
-              <Moon size={20} className="text-[#0F172A]" />
-            )}
+            {dark ? <Sun size={20} className="text-[#FFF]" /> : <Moon size={20} className="text-[#0F172A]" />}
           </button>
         </header>
 
@@ -319,23 +355,17 @@ const LaboratoryInventory = () => {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className={`${dark ? 'text-[#94A3B8]' : 'text-gray-500'}`}>
-                      Quantity :
-                    </span>
+                    <span className={`${dark ? 'text-[#94A3B8]' : 'text-gray-500'}`}>Quantity :</span>
                     <span className="font-bold text-green-500 bg-[rgba(0,201,80,0.20)] px-2 rounded">
                       {item.qty}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className={`${dark ? 'text-[#94A3B8]' : 'text-gray-500'}`}>
-                      Location :
-                    </span>
+                    <span className={`${dark ? 'text-[#94A3B8]' : 'text-gray-500'}`}>Location :</span>
                     <span className="font-semibold">{item.location}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className={`${dark ? 'text-[#94A3B8]' : 'text-gray-500'}`}>
-                      Laboratory:
-                    </span>
+                    <span className={`${dark ? 'text-[#94A3B8]' : 'text-gray-500'}`}>Laboratory:</span>
                     <span className="font-semibold">{item.lab}</span>
                   </div>
                 </div>
@@ -344,73 +374,6 @@ const LaboratoryInventory = () => {
           </div>
         )}
       </main>
-    </div>
-  );
-};
-
-const NavItem = ({ icon: Icon, label, active, dark, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-all ${
-      active
-        ? 'bg-[#2B4C9F] text-white shadow-md'
-        : dark
-          ? 'text-[#E8EAF0] hover:bg-gray-800'
-          : 'text-[#0F172A] hover:bg-gray-100'
-    }`}
-  >
-    <Icon size={20} />
-    <span className="text-sm font-medium">{label}</span>
-  </div>
-);
-
-const FilterDropdown = ({ label, dark, items = [], onSelect }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <div
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-8 px-4 py-2.5 rounded-xl border cursor-pointer bg-[#2B4C9F] border-[#2B4C9F] text-white"
-      >
-        <span className="text-sm font-medium">{label}</span>
-        <ChevronDown size={16} />
-      </div>
-
-      {open && (
-        <div
-          className={`absolute mt-2 w-52 rounded-xl border shadow-lg z-50 ${
-            dark ? 'bg-[#020817] border-[#2B4C9F]' : 'bg-white border-gray-200'
-          }`}
-        >
-          {items.map((item, index) => (
-            <div
-              key={index}
-              onClick={() => {
-                onSelect(item);
-                setOpen(false);
-              }}
-              className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
-                dark ? 'hover:bg-gray-800' : ''
-              }`}
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
